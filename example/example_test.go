@@ -3,9 +3,9 @@ package main_test
 import (
 	"testing"
 
-	"github.com/labkatco/bona/example2/utils"
+	"github.com/labkatco/bona/example/utils"
 
-	utils2 "github.com/labkatco/bona/example2/__avoud_mirror/utils"
+	utils2 "github.com/labkatco/bona/example/__avoud_mirror/utils"
 )
 
 func TestMe(t *testing.T) {
