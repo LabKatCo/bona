@@ -289,6 +289,12 @@ func rewriteBlocks(node ast.Node, funcName string) {
 						}
 					}
 				}
+				if incDec, ok := stmt.(*ast.IncDecStmt); ok {
+					if id, ok := incDec.X.(*ast.Ident); ok && id.Name != "_" {
+						stmtStr := fmt.Sprintf(`__%v_LogAssign("%s", "%s", %s)`, libName, funcName, id.Name, id.Name)
+						newList = append(newList, parseStmt(stmtStr))
+					}
+				}
 			}
 			block.List = newList
 		}
