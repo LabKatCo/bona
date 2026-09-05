@@ -29,3 +29,13 @@ type User struct {
 func (u *User) Greet(greeting string) (string, error) {
 	return fmt.Sprintf("%s, %s!", greeting, u.Name), nil
 }
+
+type Pair struct {
+	Key   int
+	Value string
+}
+
+//bona:pure
+func InsertionSort(pairs []Pair) [][]Pair {
+	return [][]Pair{}
+}

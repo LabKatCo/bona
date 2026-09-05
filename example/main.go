@@ -12,8 +12,8 @@ func main() {
 	sum := utils.Sum(2, 3)
 	fmt.Println(sum, name)
 
-	CalculateTax(100.0, 0.08)
+	utils.CalculateTax(100.0, 0.08)
 
-	usr := &User{Name: "Alice"}
+	usr := &utils.User{Name: "Alice"}
 	usr.Greet("Hello")
 }
