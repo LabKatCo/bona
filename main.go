@@ -65,6 +65,7 @@ func main() {
 
 	// 3. Listen for events
 	fmt.Println("Listening for file changes...")
+	lastProcessedContent := make(map[string][]byte)
 
 	for {
 		select {
@@ -76,9 +77,17 @@ func main() {
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 				// Ignore any file ending in test.go (e.g. _test.go)
 				if strings.HasSuffix(event.Name, ".go") && !strings.HasSuffix(event.Name, "test.go") {
-					fmt.Println("EVENT NAME", event.Name)
 					// Add a small debounce to allow IDE saves to complete
 					time.Sleep(50 * time.Millisecond)
+					content, err := os.ReadFile(event.Name)
+					if err != nil {
+						log.Printf("Read Error on %s: %v\n", event.Name, err)
+						continue
+					}
+					if previous, ok := lastProcessedContent[event.Name]; ok && bytes.Equal(previous, content) {
+						continue
+					}
+
 					relPath, _ := filepath.Rel(srcDir, event.Name)
 					dstPath := filepath.Join(mirrorDir, relPath)
 					fmt.Printf("Change detected: %s\n", relPath)
@@ -90,6 +99,7 @@ func main() {
 						log.Printf("Parse Error on %s: %v\n", relPath, err)
 						continue
 					}
+					lastProcessedContent[event.Name] = append([]byte(nil), content...)
 
 					// Trigger a build in the mirror to surface type and compiler errors
 					start := time.Now()
