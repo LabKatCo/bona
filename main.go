@@ -76,6 +76,7 @@ func main() {
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 				// Ignore any file ending in test.go (e.g. _test.go)
 				if strings.HasSuffix(event.Name, ".go") && !strings.HasSuffix(event.Name, "test.go") {
+					fmt.Println("EVENT NAME", event.Name)
 					// Add a small debounce to allow IDE saves to complete
 					time.Sleep(50 * time.Millisecond)
 					relPath, _ := filepath.Rel(srcDir, event.Name)
@@ -91,12 +92,18 @@ func main() {
 					}
 
 					// Trigger a build in the mirror to surface type and compiler errors
+					start := time.Now()
+
 					cmd := exec.Command("go", "build", "./...")
 					cmd.Dir = mirrorDir
-					if out, err := cmd.CombinedOutput(); err != nil {
-						log.Printf("Compiler Error:\n%s\n", string(out))
+					out, err := cmd.CombinedOutput()
+
+					duration := time.Since(start)
+
+					if err != nil {
+						log.Printf("Compiler Error (took %v):\n%s\n", duration, string(out))
 					} else {
-						log.Printf("Successfully compiled %s\n", relPath)
+						log.Printf("Successfully compiled %s in %v\n", relPath, duration)
 					}
 				}
 			}
