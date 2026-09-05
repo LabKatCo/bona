@@ -37,5 +37,22 @@ type Pair struct {
 
 //bona:pure
 func InsertionSort(pairs []Pair) [][]Pair {
-	return [][]Pair{}
+	orderSeq := [][]Pair{pairs}
+
+	for _, pairToInsert := range pairs {
+		thisSeq := []Pair{}
+
+		for _, pairToCompare := range pairs {
+			if pairToInsert.Key > pairToCompare.Key {
+				thisSeq = append(thisSeq, pairToCompare)
+			} else {
+				thisSeq = append(thisSeq, pairToInsert)
+			}
+		}
+
+		orderSeq = append(orderSeq, thisSeq)
+	}
+
+	return orderSeq
+
 }
