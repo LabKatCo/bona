@@ -5,7 +5,7 @@ import (
 
 	"github.com/labkatco/bona/example/utils"
 
-	utils2 "github.com/labkatco/bona/example/__avoud_mirror/utils"
+	utils2 "github.com/labkatco/bona/example/__bona_mirror/utils"
 )
 
 func TestMe(t *testing.T) {

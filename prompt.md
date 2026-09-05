@@ -1,14 +1,14 @@
 Write this Go dev tool:
 
 - When run, it watches the passed-in directory, which should be a Go project.
-- It creates an AST-modified variant of the non-test code in a separate subfolder `__avoud_mirror`, mirroring the folder/file structure of the original code.
+- It creates an AST-modified variant of the non-test code in a separate subfolder `__bona_mirror`, mirroring the folder/file structure of the original code.
 - On a `.go` file change, it updates the corresponding AST-modified file.
 
 # AST-modified behavior
 
 - Look for a custom comment pragma in format `fmt.Sprintf(`//%v:%v`, pragmaCode, directive)` before each func.
-- Set `pragmaCode := "avoud"` for now.
-- If pragma is `//avoud:pure` or `//avoud:deterministic`...
+- Set `pragmaCode := "bona"` for now.
+- If pragma is `//bona:pure` or `//bona:deterministic`...
 - Log such function names, with as fully qualified uniquely identifiable names as possible.
 - Log inputted arguments and outputted returned values of such functions.
 - Log all assignments within such functions.
@@ -17,12 +17,12 @@ Write this Go dev tool:
 
 From this original source code:
 ```
-//avoud:pure
+//bona:pure
 func Sum(a, b int) int {
     return a + b
 }
 
-//avoud:pure
+//bona:pure
 func Format(txt string) string {
     upper := strings.ToUpper(txt)
     return strings.TrimSpace(upper)
@@ -48,4 +48,4 @@ output|main.Format|"HOMIE"
 
 - Log the output above in a terminal.
 - Additionally, if CLI argument `--to_file` was specified, write this log to the path specified by `--output={DESIRED_PATH}` (user substitutes "{DESIRED_PATH}" with their path)
-- If `--to_file` was specified but no `--output` path was specified, write this log to `avoud_events.txt` in the current folder.
+- If `--to_file` was specified but no `--output` path was specified, write this log to `bona_events.txt` in the current folder.

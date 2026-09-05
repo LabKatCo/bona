@@ -5,18 +5,18 @@ import (
 	"strings"
 )
 
-//avoud:pure
+//bona:pure
 func Sum(a, b int) int {
 	return a + b
 }
 
-//avoud:pure
+//bona:pure
 func Format(txt string) string {
 	upper := strings.ToUpper(txt)
 	return strings.TrimSpace(upper)
 }
 
-//avoud:pure
+//bona:pure
 func CalculateTax(amount float64, rate float64) float64 {
 	return amount * rate
 }
@@ -25,7 +25,7 @@ type User struct {
 	Name string
 }
 
-//avoud:pure
+//bona:pure
 func (u *User) Greet(greeting string) (string, error) {
 	return fmt.Sprintf("%s, %s!", greeting, u.Name), nil
 }
