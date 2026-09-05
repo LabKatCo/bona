@@ -315,6 +315,10 @@ package %s
 import (
 	"fmt"
 	"os"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/token"
 	"strings"
 	"sync"
 )
@@ -360,7 +364,7 @@ func __{{libName}}_LogHint(pragma, funcName string) {
 func __{{libName}}_LogInput(funcName string, args ...any) {
 	parts := []string{"input", funcName}
 	for _, arg := range args {
-		parts = append(parts, fmt.Sprintf("%%#v", arg)) 
+		parts = append(parts, __{{libName}}_FormatValue(arg))
 	}
 	__{{libName}}_Log("%%s", strings.Join(parts, "|"))
 }
@@ -368,12 +372,58 @@ func __{{libName}}_LogInput(funcName string, args ...any) {
 func __{{libName}}_LogOutput(funcName string, args ...any) {
 	parts := []string{"output", funcName}
 	for _, arg := range args {
-		parts = append(parts, fmt.Sprintf("%%#v", arg))
+		parts = append(parts, __{{libName}}_FormatValue(arg))
 	}
 	__{{libName}}_Log("%%s", strings.Join(parts, "|"))
 }
 
 func __{{libName}}_LogAssign(funcName, varName string, val any) {
-	__{{libName}}_Log("assign|%%s|%%s|%%#v", funcName, varName, val)
+	__{{libName}}_Log("assign|%%s|%%s|%%s", funcName, varName, __{{libName}}_FormatValue(val))
+}
+
+func __{{libName}}_FormatValue(value any) string {
+	rendered := fmt.Sprintf("%%#v", value)
+	expr, err := parser.ParseExpr(rendered)
+	if err != nil {
+		return rendered
+	}
+
+	__{{libName}}_ElideLiteralTypes(expr, false)
+	var buf strings.Builder
+	if err := format.Node(&buf, token.NewFileSet(), expr); err != nil {
+		return rendered
+	}
+	return buf.String()
+}
+
+func __{{libName}}_ElideLiteralTypes(node ast.Node, elide bool) {
+	literal, ok := node.(*ast.CompositeLit)
+	if !ok {
+		ast.Inspect(node, func(node ast.Node) bool {
+			if nested, ok := node.(*ast.CompositeLit); ok {
+				__{{libName}}_ElideLiteralTypes(nested, false)
+				return false
+			}
+			return true
+		})
+		return
+	}
+
+	literalType := literal.Type
+	if elide {
+		literal.Type = nil
+	}
+	allowsElision := false
+	switch literalType.(type) {
+	case *ast.ArrayType, *ast.MapType:
+		allowsElision = true
+	}
+	for _, element := range literal.Elts {
+		if keyValue, ok := element.(*ast.KeyValueExpr); ok {
+			__{{libName}}_ElideLiteralTypes(keyValue.Value, allowsElision)
+			continue
+		}
+		__{{libName}}_ElideLiteralTypes(element, allowsElision)
+	}
 }
 `
