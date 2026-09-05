@@ -189,7 +189,7 @@ func processGoFile(srcPath, dstPath string) error {
 		if len(hints) > 0 {
 			f.Decls = append(f.Decls, buildHintInitFunc(hints))
 		}
-		writeRuntimeLogger(filepath.Dir(dstPath), pkgName)
+		writeRuntimeLogger(filepath.Dir(dstPath), pkgName, filepath.Dir(srcPath), filepath.Dir(dstPath))
 	}
 
 	var buf bytes.Buffer
@@ -256,8 +256,8 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 	// 2. Prepend Input and Output loggers to body
 	var newStmts []ast.Stmt
 
-	// Output (Deferred inside a closure so it evaluates variables upon return, not immediately)
-	deferStr := fmt.Sprintf(`defer func() { __%v_LogOutput("%s"`, libName, funcName)
+	// Recover only to log the panic; re-panic immediately so the original behavior is preserved.
+	deferStr := fmt.Sprintf(`defer func() { if __%v_panic := recover(); __%v_panic != nil { __%v_LogPanic("%s", __%v_panic); panic(__%v_panic) }; __%v_LogOutput("%s"`, libName, libName, libName, funcName, libName, libName, libName, funcName)
 	if len(outNames) > 0 {
 		deferStr += ", " + strings.Join(outNames, ", ")
 	}
@@ -326,8 +326,12 @@ func buildHintInitFunc(hints []string) *ast.FuncDecl {
 
 // writeRuntimeLogger drops an isolated runtime logger file into the target package so that
 // transformed files can log inputs and outputs without cyclic dependency or import issues.
-func writeRuntimeLogger(dir, pkgName string) {
-	content := strings.ReplaceAll(fmt.Sprintf(loggerTmpl, pkgName), "{{libName}}", libName)
+func writeRuntimeLogger(dir, pkgName, sourceDir, mirrorDir string) {
+	sourceDir, _ = filepath.Abs(sourceDir)
+	mirrorDir, _ = filepath.Abs(mirrorDir)
+	sourceDir = filepath.ToSlash(sourceDir)
+	mirrorDir = filepath.ToSlash(mirrorDir)
+	content := strings.ReplaceAll(fmt.Sprintf(loggerTmpl, pkgName, sourceDir, mirrorDir), "{{libName}}", libName)
 	// REMOVED the "__" prefix so the compiler includes this file
 	_ = os.WriteFile(filepath.Join(dir, libName+"_logger_gen.go"), []byte(content), 0644)
 }
@@ -337,6 +341,7 @@ package %s
 
 import (
 	"fmt"
+	"runtime/debug"
 	"os"
 	"go/ast"
 	"go/format"
@@ -349,6 +354,11 @@ import (
 var (
 	__{{libName}}_out  *os.File
 	__{{libName}}_once sync.Once
+)
+
+const (
+	__{{libName}}_sourceDir = %q
+	__{{libName}}_mirrorDir = %q
 )
 
 func __{{libName}}_initLogger() {
@@ -402,6 +412,12 @@ func __{{libName}}_LogOutput(funcName string, args ...any) {
 
 func __{{libName}}_LogAssign(funcName, varName string, val any) {
 	__{{libName}}_Log("assign|%%s|%%s|%%s", funcName, varName, __{{libName}}_FormatValue(val))
+}
+
+func __{{libName}}_LogPanic(funcName string, recovered any) {
+	stack := string(debug.Stack())
+	stack = strings.ReplaceAll(stack, __{{libName}}_mirrorDir, __{{libName}}_sourceDir)
+	__{{libName}}_Log("panic|%%s|%%s\n%%s", funcName, __{{libName}}_FormatValue(recovered), stack)
 }
 
 func __{{libName}}_FormatValue(value any) string {
