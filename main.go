@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -64,12 +65,14 @@ func main() {
 
 	// 3. Listen for events
 	fmt.Println("Listening for file changes...")
+
 	for {
 		select {
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
+
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 				// Ignore any file ending in test.go (e.g. _test.go)
 				if strings.HasSuffix(event.Name, ".go") && !strings.HasSuffix(event.Name, "test.go") {
@@ -80,7 +83,21 @@ func main() {
 					fmt.Printf("Change detected: %s\n", relPath)
 
 					os.MkdirAll(filepath.Dir(dstPath), 0755)
-					processGoFile(event.Name, dstPath)
+
+					// Catch and report AST parsing errors
+					if err := processGoFile(event.Name, dstPath); err != nil {
+						log.Printf("Parse Error on %s: %v\n", relPath, err)
+						continue
+					}
+
+					// Trigger a build in the mirror to surface type and compiler errors
+					cmd := exec.Command("go", "build", "./...")
+					cmd.Dir = mirrorDir
+					if out, err := cmd.CombinedOutput(); err != nil {
+						log.Printf("Compiler Error:\n%s\n", string(out))
+					} else {
+						log.Printf("Successfully compiled %s\n", relPath)
+					}
 				}
 			}
 		case err, ok := <-watcher.Errors:
@@ -227,7 +244,7 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 	if len(outNames) > 0 {
 		deferStr += ", " + strings.Join(outNames, ", ")
 	}
-	deferStr += ") }()"
+	deferStr += ") }() "
 	newStmts = append(newStmts, parseStmt(deferStr))
 
 	// Input (Immediate)
