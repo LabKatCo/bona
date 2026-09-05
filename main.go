@@ -277,6 +277,15 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 
 func rewriteBlocks(node ast.Node, funcName string) {
 	ast.Inspect(node, func(n ast.Node) bool {
+		if rangeStmt, ok := n.(*ast.RangeStmt); ok {
+			var logs []ast.Stmt
+			for _, expr := range []ast.Expr{rangeStmt.Key, rangeStmt.Value} {
+				if id, ok := expr.(*ast.Ident); ok && id.Name != "_" {
+					logs = append(logs, assignmentLog(id.Name, funcName))
+				}
+			}
+			rangeStmt.Body.List = append(logs, rangeStmt.Body.List...)
+		}
 		if block, ok := n.(*ast.BlockStmt); ok {
 			var newList []ast.Stmt
 			for _, stmt := range block.List {
@@ -284,15 +293,13 @@ func rewriteBlocks(node ast.Node, funcName string) {
 				if as, ok := stmt.(*ast.AssignStmt); ok {
 					for _, lhs := range as.Lhs {
 						if id, ok := lhs.(*ast.Ident); ok && id.Name != "_" {
-							stmtStr := fmt.Sprintf(`__%v_LogAssign("%s", "%s", %s)`, libName, funcName, id.Name, id.Name)
-							newList = append(newList, parseStmt(stmtStr))
+							newList = append(newList, assignmentLog(id.Name, funcName))
 						}
 					}
 				}
 				if incDec, ok := stmt.(*ast.IncDecStmt); ok {
 					if id, ok := incDec.X.(*ast.Ident); ok && id.Name != "_" {
-						stmtStr := fmt.Sprintf(`__%v_LogAssign("%s", "%s", %s)`, libName, funcName, id.Name, id.Name)
-						newList = append(newList, parseStmt(stmtStr))
+						newList = append(newList, assignmentLog(id.Name, funcName))
 					}
 				}
 			}
@@ -300,6 +307,11 @@ func rewriteBlocks(node ast.Node, funcName string) {
 		}
 		return true
 	})
+}
+
+func assignmentLog(name, funcName string) ast.Stmt {
+	stmtStr := fmt.Sprintf(`__%v_LogAssign("%s", "%s", %s)`, libName, funcName, name, name)
+	return parseStmt(stmtStr)
 }
 
 // parseStmt is a robust trick to generate valid AST statements without manually constructing
