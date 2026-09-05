@@ -39,20 +39,35 @@ type Pair struct {
 func InsertionSort(pairs []Pair) [][]Pair {
 	orderSeq := [][]Pair{pairs}
 
-	for _, pairToInsert := range pairs {
-		thisSeq := []Pair{}
+	for i := range len(pairs) - 1 {
+		pairToInsert := pairs[i]
 
-		for _, pairToCompare := range pairs {
-			if pairToInsert.Key > pairToCompare.Key {
-				thisSeq = append(thisSeq, pairToCompare)
-			} else {
-				thisSeq = append(thisSeq, pairToInsert)
+		otherPairs := []Pair{}
+
+		for _, pair := range orderSeq[len(orderSeq)-1] {
+			if pair.Key == pairToInsert.Key && pair.Value == pairToInsert.Value {
+				continue
 			}
+
+			otherPairs = append(otherPairs, pair)
 		}
 
-		orderSeq = append(orderSeq, thisSeq)
+		afterPairs := []Pair{}
+		inserted := false
+
+		for _, otherPair := range otherPairs {
+			if pairToInsert.Key <= otherPair.Key {
+				if !inserted {
+					afterPairs = append(afterPairs, pairToInsert)
+					inserted = true
+				}
+			}
+
+			afterPairs = append(afterPairs, otherPair)
+		}
+
+		orderSeq = append(orderSeq, afterPairs)
 	}
 
 	return orderSeq
-
 }

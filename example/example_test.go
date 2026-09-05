@@ -15,7 +15,7 @@ func TestMe(t *testing.T) {
 }
 
 func TestInsertionSort(t *testing.T) {
-	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{}), [][]utils2.Pair{})
+	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{}), [][]utils2.Pair{{}})
 
 	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{
 		{Key: 5, Value: "apple"},
