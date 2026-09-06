@@ -200,6 +200,7 @@ func processGoFile(srcPath, dstPath string) error {
 	return os.WriteFile(dstPath, buf.Bytes(), 0644)
 }
 
+//bona:pure
 func hasPragma(doc *ast.CommentGroup) (bool, string) {
 	if doc == nil {
 		return false, ""
@@ -221,6 +222,29 @@ func hasPragma(doc *ast.CommentGroup) (bool, string) {
 	return false, ""
 }
 
+//bona:pure
+func parameterNames(params *ast.FieldList) []string {
+	if params == nil {
+		return nil
+	}
+
+	var names []string
+	for _, field := range params.List {
+		for _, name := range field.Names {
+			names = append(names, name.Name)
+		}
+	}
+	return names
+}
+
+//bona:pure
+func resultName(field *ast.Field, index int) string {
+	if len(field.Names) > 0 {
+		return field.Names[0].Name
+	}
+	return fmt.Sprintf("_%v_ret%d", libName, index)
+}
+
 func transformFunc(fn *ast.FuncDecl, funcName string) {
 	var outNames []string
 	if fn.Type.Results != nil {
@@ -228,7 +252,7 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 		for _, field := range fn.Type.Results.List {
 			if len(field.Names) == 0 {
 				// Name unnamed returns so we can capture them with defer
-				name := ast.NewIdent(fmt.Sprintf("_%v_ret%d", libName, idx))
+				name := ast.NewIdent(resultName(field, idx))
 				field.Names = []*ast.Ident{name}
 				outNames = append(outNames, name.Name)
 				idx++
@@ -241,14 +265,7 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 		}
 	}
 
-	var inNames []string
-	if fn.Type.Params != nil {
-		for _, field := range fn.Type.Params.List {
-			for _, name := range field.Names {
-				inNames = append(inNames, name.Name)
-			}
-		}
-	}
+	inNames := parameterNames(fn.Type.Params)
 
 	// 1. Rewrite assignments in the body
 	rewriteBlocks(fn.Body, funcName)
@@ -309,6 +326,7 @@ func rewriteBlocks(node ast.Node, funcName string) {
 	})
 }
 
+//bona:pure
 func assignmentLog(name, funcName string) ast.Stmt {
 	stmtStr := fmt.Sprintf(`__%v_LogAssign("%s", "%s", %s)`, libName, funcName, name, name)
 	return parseStmt(stmtStr)
@@ -316,6 +334,8 @@ func assignmentLog(name, funcName string) ast.Stmt {
 
 // parseStmt is a robust trick to generate valid AST statements without manually constructing
 // a dozen nested ast.*Type structures.
+//
+//bona:pure
 func parseStmt(stmtStr string) ast.Stmt {
 	src := "package p\nfunc f() {\n" + stmtStr + "\n}"
 	f, err := parser.ParseFile(token.NewFileSet(), "", src, 0)
@@ -325,6 +345,7 @@ func parseStmt(stmtStr string) ast.Stmt {
 	return f.Decls[0].(*ast.FuncDecl).Body.List[0]
 }
 
+//bona:pure
 func buildHintInitFunc(hints []string) *ast.FuncDecl {
 	var stmts []string
 	for _, h := range hints {
