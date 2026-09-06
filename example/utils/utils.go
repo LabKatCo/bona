@@ -37,37 +37,36 @@ type Pair struct {
 
 //bona:pure
 func InsertionSort(pairs []Pair) [][]Pair {
-	orderSeq := [][]Pair{pairs}
+	fullSeq := [][]Pair{}
 
-	for i := range len(pairs) - 1 {
-		pairToInsert := pairs[i]
+	sortedPairs := []Pair{}
 
-		otherPairs := []Pair{}
+	for i := range pairs {
+		currentPair := pairs[i]
 
-		for _, pair := range orderSeq[len(orderSeq)-1] {
-			if pair.Key == pairToInsert.Key && pair.Value == pairToInsert.Value {
-				continue
+		insertSortedIndex := 0
+		for insertSortedIndex < len(sortedPairs) {
+			if currentPair.Key < sortedPairs[insertSortedIndex].Key {
+				break
 			}
 
-			otherPairs = append(otherPairs, pair)
+			insertSortedIndex++
 		}
 
-		afterPairs := []Pair{}
-		inserted := false
+		sortedBeforeCurrent := append([]Pair{}, sortedPairs[:insertSortedIndex]...)
+		sortedAfterCurrent := append([]Pair{}, sortedPairs[insertSortedIndex:]...)
 
-		for _, otherPair := range otherPairs {
-			if pairToInsert.Key <= otherPair.Key {
-				if !inserted {
-					afterPairs = append(afterPairs, pairToInsert)
-					inserted = true
-				}
-			}
+		newFirstSortedPairs := append(sortedBeforeCurrent, currentPair)
 
-			afterPairs = append(afterPairs, otherPair)
-		}
+		newSortedPairs := append(newFirstSortedPairs, sortedAfterCurrent...)
 
-		orderSeq = append(orderSeq, afterPairs)
+		sortedPairs = newSortedPairs
+
+		restPairs := pairs[i+1:]
+		allCurrentPairs := append(newSortedPairs, restPairs...)
+
+		fullSeq = append(fullSeq, allCurrentPairs)
 	}
 
-	return orderSeq
+	return fullSeq
 }

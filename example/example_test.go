@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	utils2 "github.com/labkatco/bona/example/__bona_mirror/utils"
+	"github.com/labkatco/bona/example/utils"
 )
 
 func TestMe(t *testing.T) {
@@ -14,9 +15,11 @@ func TestMe(t *testing.T) {
 	CheckEqual(t, utils2.Sum(1, 2), 3)
 }
 
-func TestInsertionSort(t *testing.T) {
-	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{}), [][]utils2.Pair{{}})
+func TestInsertionSortEmpty(t *testing.T) {
+	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{}), [][]utils2.Pair{})
+}
 
+func TestInsertionSortFruit(t *testing.T) {
 	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{
 		{Key: 5, Value: "apple"},
 		{Key: 2, Value: "banana"},
@@ -38,7 +41,33 @@ func TestInsertionSort(t *testing.T) {
 			{Key: 9, Value: "cherry"},
 		},
 	})
+}
 
+func TestInsertionSortFruitNormal(t *testing.T) {
+	CheckDeepEqual(t, utils.InsertionSort([]utils.Pair{
+		{Key: 5, Value: "apple"},
+		{Key: 2, Value: "banana"},
+		{Key: 9, Value: "cherry"},
+	}), [][]utils.Pair{
+		{
+			{Key: 5, Value: "apple"},
+			{Key: 2, Value: "banana"},
+			{Key: 9, Value: "cherry"},
+		},
+		{
+			{Key: 2, Value: "banana"},
+			{Key: 5, Value: "apple"},
+			{Key: 9, Value: "cherry"},
+		},
+		{
+			{Key: 2, Value: "banana"},
+			{Key: 5, Value: "apple"},
+			{Key: 9, Value: "cherry"},
+		},
+	})
+}
+
+func TestInsertionSortPets(t *testing.T) {
 	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{
 		{Key: 3, Value: "cat"},
 		{Key: 3, Value: "bird"},
@@ -58,6 +87,52 @@ func TestInsertionSort(t *testing.T) {
 			{Key: 2, Value: "dog"},
 			{Key: 3, Value: "cat"},
 			{Key: 3, Value: "bird"},
+		},
+	})
+}
+
+func TestInsertionSortOther(t *testing.T) {
+	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{
+		{Key: 3, Value: "cat"},
+		{Key: 3, Value: "bird"},
+		{Key: 3, Value: "dog"},
+	}), [][]utils2.Pair{
+		{
+			{Key: 3, Value: "cat"},
+			{Key: 3, Value: "bird"},
+			{Key: 3, Value: "dog"},
+		},
+		{
+			{Key: 3, Value: "cat"},
+			{Key: 3, Value: "bird"},
+			{Key: 3, Value: "dog"},
+		},
+		{
+			{Key: 3, Value: "cat"},
+			{Key: 3, Value: "bird"},
+			{Key: 3, Value: "dog"},
+		},
+	})
+
+	CheckDeepEqual(t, utils2.InsertionSort([]utils2.Pair{
+		{Key: 8, Value: "cat"},
+		{Key: 7, Value: "bird"},
+		{Key: 8, Value: "dog"},
+	}), [][]utils2.Pair{
+		{
+			{Key: 8, Value: "cat"},
+			{Key: 7, Value: "bird"},
+			{Key: 8, Value: "dog"},
+		},
+		{
+			{Key: 7, Value: "bird"},
+			{Key: 8, Value: "cat"},
+			{Key: 8, Value: "dog"},
+		},
+		{
+			{Key: 7, Value: "bird"},
+			{Key: 8, Value: "cat"},
+			{Key: 8, Value: "dog"},
 		},
 	})
 }
