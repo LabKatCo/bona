@@ -15,26 +15,29 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/labkatco/bona/constants"
+	"github.com/labkatco/bona/parse"
 )
 
-const libName = "bona"
-
-var mirrorDirName = fmt.Sprintf("__%v_mirror", libName)
+var mirrorDirName = fmt.Sprintf("__%v_mirror", constants.LibName)
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatalf("Usage: go run %v_watcher.go <project_directory>", libName)
+		log.Fatalf("Usage: go run %v_watcher.go <project_directory>", constants.LibName)
 	}
 
-	srcDir := filepath.Clean(os.Args[1])
+	srcDir, err := filepath.Abs(os.Args[1])
+	if err != nil {
+		log.Fatalf("Could not resolve project directory: %v", err)
+	}
 	mirrorDir := filepath.Join(srcDir, mirrorDirName)
 
-	fmt.Printf("Starting %v dev tool...\n", libName)
+	fmt.Printf("Starting %v dev tool...\n", constants.LibName)
 	fmt.Printf("Watching: %s\n", srcDir)
 	fmt.Printf("Mirror:   %s\n", mirrorDir)
 
 	// 1. First Pass: Mirror existing files
-	err := mirrorTree(srcDir, mirrorDir)
+	err = mirrorTree(srcDir, mirrorDir)
 	if err != nil {
 		log.Fatalf("Initial mirror failed: %v", err)
 	}
@@ -127,6 +130,10 @@ func main() {
 }
 
 func mirrorTree(src, dst string) error {
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -174,7 +181,7 @@ func processGoFile(srcPath, dstPath string) error {
 
 	for _, decl := range f.Decls {
 		if fn, ok := decl.(*ast.FuncDecl); ok {
-			isTarget, pragma := hasPragma(fn.Doc)
+			isTarget, pragma := parse.HasPragma(fn.Doc)
 			if isTarget {
 				funcName := pkgName + "." + fn.Name.Name
 				hints = append(hints, pragma+"|"+funcName)
@@ -187,7 +194,7 @@ func processGoFile(srcPath, dstPath string) error {
 	// If we injected logging into any functions, add an init() for the hints
 	if modified {
 		if len(hints) > 0 {
-			f.Decls = append(f.Decls, buildHintInitFunc(hints))
+			f.Decls = append(f.Decls, parse.BuildHintInitFunc(hints))
 		}
 		writeRuntimeLogger(filepath.Dir(dstPath), pkgName, filepath.Dir(srcPath), filepath.Dir(dstPath))
 	}
@@ -200,51 +207,6 @@ func processGoFile(srcPath, dstPath string) error {
 	return os.WriteFile(dstPath, buf.Bytes(), 0644)
 }
 
-//bona:pure
-func hasPragma(doc *ast.CommentGroup) (bool, string) {
-	if doc == nil {
-		return false, ""
-	}
-
-	for _, c := range doc.List {
-		if !strings.Contains(c.Text, "//"+libName) {
-			continue
-		}
-
-		if strings.Contains(c.Text, ":pure") {
-			return true, "pure"
-		}
-		if strings.Contains(c.Text, ":deterministic") {
-			return true, "deterministic"
-		}
-	}
-
-	return false, ""
-}
-
-//bona:pure
-func parameterNames(params *ast.FieldList) []string {
-	if params == nil {
-		return nil
-	}
-
-	var names []string
-	for _, field := range params.List {
-		for _, name := range field.Names {
-			names = append(names, name.Name)
-		}
-	}
-	return names
-}
-
-//bona:pure
-func resultName(field *ast.Field, index int) string {
-	if len(field.Names) > 0 {
-		return field.Names[0].Name
-	}
-	return fmt.Sprintf("_%v_ret%d", libName, index)
-}
-
 func transformFunc(fn *ast.FuncDecl, funcName string) {
 	var outNames []string
 	if fn.Type.Results != nil {
@@ -252,7 +214,7 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 		for _, field := range fn.Type.Results.List {
 			if len(field.Names) == 0 {
 				// Name unnamed returns so we can capture them with defer
-				name := ast.NewIdent(resultName(field, idx))
+				name := ast.NewIdent(parse.ResultName(field, idx))
 				field.Names = []*ast.Ident{name}
 				outNames = append(outNames, name.Name)
 				idx++
@@ -265,7 +227,7 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 		}
 	}
 
-	inNames := parameterNames(fn.Type.Params)
+	inNames := parse.ParameterNames(fn.Type.Params)
 
 	// 1. Rewrite assignments in the body
 	rewriteBlocks(fn.Body, funcName)
@@ -274,20 +236,21 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 	var newStmts []ast.Stmt
 
 	// Recover only to log the panic; re-panic immediately so the original behavior is preserved.
-	deferStr := fmt.Sprintf(`defer func() { if __%v_panic := recover(); __%v_panic != nil { __%v_LogPanic("%s", __%v_panic); panic(__%v_panic) }; __%v_LogOutput("%s"`, libName, libName, libName, funcName, libName, libName, libName, funcName)
+	deferStr := fmt.Sprintf(`defer func() { if __%v_panic := recover(); __%v_panic != nil { __%v_LogPanic("%s", __%v_panic); panic(__%v_panic) }; __%v_LogOutput("%s"`,
+		constants.LibName, constants.LibName, constants.LibName, funcName, constants.LibName, constants.LibName, constants.LibName, funcName)
 	if len(outNames) > 0 {
 		deferStr += ", " + strings.Join(outNames, ", ")
 	}
 	deferStr += ") }() "
-	newStmts = append(newStmts, parseStmt(deferStr))
+	newStmts = append(newStmts, parse.ParseStmt(deferStr))
 
 	// Input (Immediate)
-	inputStr := fmt.Sprintf(`__%v_LogInput("%s"`, libName, funcName)
+	inputStr := fmt.Sprintf(`__%v_LogInput("%s"`, constants.LibName, funcName)
 	if len(inNames) > 0 {
 		inputStr += ", " + strings.Join(inNames, ", ")
 	}
 	inputStr += ")"
-	newStmts = append(newStmts, parseStmt(inputStr))
+	newStmts = append(newStmts, parse.ParseStmt(inputStr))
 
 	fn.Body.List = append(newStmts, fn.Body.List...)
 }
@@ -298,7 +261,7 @@ func rewriteBlocks(node ast.Node, funcName string) {
 			var logs []ast.Stmt
 			for _, expr := range []ast.Expr{rangeStmt.Key, rangeStmt.Value} {
 				if id, ok := expr.(*ast.Ident); ok && id.Name != "_" {
-					logs = append(logs, assignmentLog(id.Name, funcName))
+					logs = append(logs, parse.AssignmentLog(id.Name, funcName))
 				}
 			}
 			rangeStmt.Body.List = append(logs, rangeStmt.Body.List...)
@@ -310,13 +273,13 @@ func rewriteBlocks(node ast.Node, funcName string) {
 				if as, ok := stmt.(*ast.AssignStmt); ok {
 					for _, lhs := range as.Lhs {
 						if id, ok := lhs.(*ast.Ident); ok && id.Name != "_" {
-							newList = append(newList, assignmentLog(id.Name, funcName))
+							newList = append(newList, parse.AssignmentLog(id.Name, funcName))
 						}
 					}
 				}
 				if incDec, ok := stmt.(*ast.IncDecStmt); ok {
 					if id, ok := incDec.X.(*ast.Ident); ok && id.Name != "_" {
-						newList = append(newList, assignmentLog(id.Name, funcName))
+						newList = append(newList, parse.AssignmentLog(id.Name, funcName))
 					}
 				}
 			}
@@ -326,37 +289,6 @@ func rewriteBlocks(node ast.Node, funcName string) {
 	})
 }
 
-//bona:pure
-func assignmentLog(name, funcName string) ast.Stmt {
-	stmtStr := fmt.Sprintf(`__%v_LogAssign("%s", "%s", %s)`, libName, funcName, name, name)
-	return parseStmt(stmtStr)
-}
-
-// parseStmt is a robust trick to generate valid AST statements without manually constructing
-// a dozen nested ast.*Type structures.
-//
-//bona:pure
-func parseStmt(stmtStr string) ast.Stmt {
-	src := "package p\nfunc f() {\n" + stmtStr + "\n}"
-	f, err := parser.ParseFile(token.NewFileSet(), "", src, 0)
-	if err != nil {
-		panic(fmt.Errorf("failed to parse injected stmt: %s\n%v", stmtStr, err))
-	}
-	return f.Decls[0].(*ast.FuncDecl).Body.List[0]
-}
-
-//bona:pure
-func buildHintInitFunc(hints []string) *ast.FuncDecl {
-	var stmts []string
-	for _, h := range hints {
-		parts := strings.SplitN(h, "|", 2)
-		stmts = append(stmts, fmt.Sprintf(`__%v_LogHint("%s", "%s")`, libName, parts[0], parts[1]))
-	}
-	src := fmt.Sprintf("package p\nfunc init() {\n%s\n}", strings.Join(stmts, "\n"))
-	f, _ := parser.ParseFile(token.NewFileSet(), "", src, 0)
-	return f.Decls[0].(*ast.FuncDecl)
-}
-
 // writeRuntimeLogger drops an isolated runtime logger file into the target package so that
 // transformed files can log inputs and outputs without cyclic dependency or import issues.
 func writeRuntimeLogger(dir, pkgName, sourceDir, mirrorDir string) {
@@ -364,9 +296,9 @@ func writeRuntimeLogger(dir, pkgName, sourceDir, mirrorDir string) {
 	mirrorDir, _ = filepath.Abs(mirrorDir)
 	sourceDir = filepath.ToSlash(sourceDir)
 	mirrorDir = filepath.ToSlash(mirrorDir)
-	content := strings.ReplaceAll(fmt.Sprintf(loggerTmpl, pkgName, sourceDir, mirrorDir), "{{libName}}", libName)
+	content := strings.ReplaceAll(fmt.Sprintf(loggerTmpl, pkgName, sourceDir, mirrorDir), "{{libName}}", constants.LibName)
 	// REMOVED the "__" prefix so the compiler includes this file
-	_ = os.WriteFile(filepath.Join(dir, libName+"_logger_gen.go"), []byte(content), 0644)
+	_ = os.WriteFile(filepath.Join(dir, constants.LibName+"_logger_gen.go"), []byte(content), 0644)
 }
 
 const loggerTmpl = `// Code generated by {{libName}} dev tool. DO NOT EDIT.

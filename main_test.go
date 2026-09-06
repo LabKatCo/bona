@@ -6,7 +6,11 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/labkatco/bona/parse"
 )
 
 func TestHasPragma(t *testing.T) {
@@ -27,7 +31,7 @@ func TestHasPragma(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, pragma := hasPragma(file.Decls[0].(*ast.FuncDecl).Doc)
+			got, pragma := parse.HasPragma(file.Decls[0].(*ast.FuncDecl).Doc)
 			if want := test.want != ""; got != want || pragma != test.want {
 				t.Fatalf("hasPragma() = (%t, %q), want (%t, %q)", got, pragma, want, test.want)
 			}
@@ -41,7 +45,7 @@ func TestParameterNames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := parameterNames(file.Decls[0].(*ast.FuncDecl).Type.Params)
+	got := parse.ParameterNames(file.Decls[0].(*ast.FuncDecl).Type.Params)
 	want := []string{"first", "second", "third"}
 	if len(got) != len(want) {
 		t.Fatalf("parameterNames() = %v, want %v", got, want)
@@ -55,17 +59,17 @@ func TestParameterNames(t *testing.T) {
 
 func TestResultName(t *testing.T) {
 	named := &ast.Field{Names: []*ast.Ident{ast.NewIdent("value")}}
-	if got := resultName(named, 2); got != "value" {
+	if got := parse.ResultName(named, 2); got != "value" {
 		t.Fatalf("resultName(named) = %q, want %q", got, "value")
 	}
 
-	if got := resultName(&ast.Field{}, 2); got != "_bona_ret2" {
+	if got := parse.ResultName(&ast.Field{}, 2); got != "_bona_ret2" {
 		t.Fatalf("resultName(unnamed) = %q, want %q", got, "_bona_ret2")
 	}
 }
 
 func TestBuildHintInitFunc(t *testing.T) {
-	decl := buildHintInitFunc([]string{"pure|utils.Sum", "deterministic|utils.Read"})
+	decl := parse.BuildHintInitFunc([]string{"pure|utils.Sum", "deterministic|utils.Read"})
 	var output bytes.Buffer
 	if err := format.Node(&output, token.NewFileSet(), decl); err != nil {
 		t.Fatal(err)
@@ -74,5 +78,21 @@ func TestBuildHintInitFunc(t *testing.T) {
 	want := "func init() {\n\t__bona_LogHint(\"pure\", \"utils.Sum\")\n\t__bona_LogHint(\"deterministic\", \"utils.Read\")\n}"
 	if output.String() != want {
 		t.Fatalf("buildHintInitFunc() = %q, want %q", output.String(), want)
+	}
+}
+
+func TestMirrorTreeCreatesMirror(t *testing.T) {
+	src := t.TempDir()
+	dst := filepath.Join(src, mirrorDirName)
+	if err := os.WriteFile(filepath.Join(src, "sample.go"), []byte("package sample\n\nfunc Value() int { return 1 }\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := mirrorTree(src, dst); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dst, "sample.go")); err != nil {
+		t.Fatalf("mirrorTree() did not create mirrored Go file: %v", err)
 	}
 }
