@@ -43,6 +43,30 @@ func TestInsertionSortFruit(t *testing.T) {
 	})
 }
 
+func TestGeminiInsertionSortFruitNormal(t *testing.T) {
+	CheckDeepEqual(t, utils2.GeminiInsertionSort([]utils2.Pair{
+		{Key: 5, Value: "apple"},
+		{Key: 2, Value: "banana"},
+		{Key: 9, Value: "cherry"},
+	}), [][]utils2.Pair{
+		{
+			{Key: 5, Value: "apple"},
+			{Key: 2, Value: "banana"},
+			{Key: 9, Value: "cherry"},
+		},
+		{
+			{Key: 2, Value: "banana"},
+			{Key: 5, Value: "apple"},
+			{Key: 9, Value: "cherry"},
+		},
+		{
+			{Key: 2, Value: "banana"},
+			{Key: 5, Value: "apple"},
+			{Key: 9, Value: "cherry"},
+		},
+	})
+}
+
 func TestInsertionSortFruitNormal(t *testing.T) {
 	CheckDeepEqual(t, utils.InsertionSort([]utils.Pair{
 		{Key: 5, Value: "apple"},

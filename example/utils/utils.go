@@ -70,3 +70,38 @@ func InsertionSort(pairs []Pair) [][]Pair {
 
 	return fullSeq
 }
+
+//bona:pure
+func GeminiInsertionSort(pairs []Pair) [][]Pair {
+	n := len(pairs)
+	if n == 0 {
+		return [][]Pair{}
+	}
+
+	states := make([][]Pair, 0, n)
+
+	// Make a deep copy of the slice to avoid modifying the input directly.
+	arr := make([]Pair, n)
+	copy(arr, pairs)
+
+	for i := 0; i < n; i++ {
+		keyItem := arr[i]
+		j := i - 1
+
+		// Shift elements of arr[0..i-1] that are greater than keyItem.Key
+		// to one position ahead of their current position.
+		// Using > instead of >= ensures stability for equal keys.
+		for j >= 0 && arr[j].Key > keyItem.Key {
+			arr[j+1] = arr[j]
+			j--
+		}
+		arr[j+1] = keyItem
+
+		// Save a deep copy of the current state after placing element `i`.
+		stateCopy := make([]Pair, n)
+		copy(stateCopy, arr)
+		states = append(states, stateCopy)
+	}
+
+	return states
+}
