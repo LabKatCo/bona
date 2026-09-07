@@ -322,23 +322,23 @@ var (
 	__{{libName}}_color bool
 )
 
-var __{{libName}}_theme = struct {
-	stringColor     string
-	numberColor     string
-	packageColor    string
-	typeColor       string
-	propertyColor   string
-	punctuationColor string
-}{
-	stringColor:      "\x1b[36m",
-	numberColor:      "\x1b[38;5;208m",
-	packageColor:     "\x1b[38;5;240m",
-	typeColor:        "\x1b[90m",
-	propertyColor:    "\x1b[97m",
-	punctuationColor: "\x1b[90m",
+var __{{libName}}_themeColors = map[string]string{
+	"string":      "[36m",
+	"number":      "\x1b[38;5;208m",
+	"package":     "\x1b[38;5;240m",
+	"type":        "\x1b[90m",
+	"property":    "\x1b[97m",
+	"punctuation": "\x1b[90m",
 }
 
 const __{{libName}}_colorReset = "\x1b[0m"
+
+var __{{libName}}_eventColors = map[string]string{
+	"hint":   "\x1b[97m",
+	"assign": "\x1b[90m",
+	"input":  "\x1b[32m",
+	"output": "\x1b[31m",
+}
 
 const (
 	__{{libName}}_sourceDir = %q
@@ -375,10 +375,23 @@ func __{{libName}}_initLogger() {
 func __{{libName}}_Log(format string, args ...any) {
 	__{{libName}}_initLogger()
 	msg := fmt.Sprintf(format, args...)
+	msg = __{{libName}}_colorEvent(msg)
 	fmt.Println(msg)
 	if __{{libName}}_out != nil {
 		__{{libName}}_out.WriteString(__{{libName}}_stripColor(msg) + "\n")
 	}
+}
+
+func __{{libName}}_colorEvent(value string) string {
+	if !__{{libName}}_color {
+		return value
+	}
+	event, rest, found := strings.Cut(value, "|")
+	color, ok := __{{libName}}_eventColors[event]
+	if !found || !ok {
+		return value
+	}
+	return color + event + __{{libName}}_colorReset + "|" + rest
 }
 
 func __{{libName}}_supportsColor(force bool) bool {
@@ -400,18 +413,15 @@ func __{{libName}}_supportsColor(force bool) bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
+
 func __{{libName}}_stripColor(value string) string {
-	for _, color := range []string{
-		__{{libName}}_theme.stringColor,
-		__{{libName}}_theme.numberColor,
-		__{{libName}}_theme.packageColor,
-		__{{libName}}_theme.typeColor,
-		__{{libName}}_theme.propertyColor,
-		__{{libName}}_theme.punctuationColor,
-		__{{libName}}_colorReset,
-	} {
+	for _, color := range __{{libName}}_eventColors {
 		value = strings.ReplaceAll(value, color, "")
 	}
+	for _, color := range __{{libName}}_themeColors {
+		value = strings.ReplaceAll(value, color, "")
+	}
+	value = strings.ReplaceAll(value, __{{libName}}_colorReset, "")
 	return value
 }
 
@@ -512,24 +522,24 @@ func __{{libName}}_tokenColor(tokens []__{{libName}}_token, index int) string {
 	current := tokens[index]
 	switch current.kind {
 	case token.STRING, token.CHAR:
-		return __{{libName}}_theme.stringColor
+		return "\x1b" + __{{libName}}_themeColors["string"]
 	case token.INT, token.FLOAT, token.IMAG:
-		return __{{libName}}_theme.numberColor
+		return __{{libName}}_themeColors["number"]
 	case token.IDENT:
 		if index+1 < len(tokens) && tokens[index+1].kind == token.PERIOD {
-			return __{{libName}}_theme.packageColor
+			return __{{libName}}_themeColors["punctuation"]
 		}
 		if index+1 < len(tokens) && tokens[index+1].kind == token.COLON {
-			return __{{libName}}_theme.propertyColor
+			return __{{libName}}_themeColors["property"]
 		}
-		return __{{libName}}_theme.typeColor
+		return __{{libName}}_themeColors["type"]
 	case token.PERIOD:
-		if index > 0 && tokens[index-1].kind == token.IDENT && __{{libName}}_tokenColor(tokens, index-1) == __{{libName}}_theme.packageColor {
-			return __{{libName}}_theme.packageColor
+		if index > 0 && tokens[index-1].kind == token.IDENT && __{{libName}}_tokenColor(tokens, index-1) == __{{libName}}_themeColors["package"] {
+			return __{{libName}}_themeColors["package"]
 		}
-		return __{{libName}}_theme.punctuationColor
+		return __{{libName}}_themeColors["punctuation"]
 	default:
-		return __{{libName}}_theme.punctuationColor
+		return __{{libName}}_themeColors["punctuation"]
 	}
 }
 
