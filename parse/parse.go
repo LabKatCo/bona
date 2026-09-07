@@ -61,6 +61,12 @@ func AssignmentLog(name, funcName string) ast.Stmt {
 	return ParseStmt(stmtStr)
 }
 
+// BuildMapAssignmentLog records an assignment to a map entry using the evaluated key.
+func BuildMapAssignmentLog(mapName, keyName, mapExpr, funcName string) ast.Stmt {
+	stmtStr := fmt.Sprintf(`__%v_LogMapAssign("%s", "%s", %s, %s)`, constants.LibName, funcName, mapName, keyName, mapExpr)
+	return ParseStmt(stmtStr)
+}
+
 // ParseStmt is a robust trick to generate valid AST statements without manually constructing
 // a dozen nested ast.*Type structures.
 //

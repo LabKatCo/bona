@@ -256,6 +256,7 @@ func transformFunc(fn *ast.FuncDecl, funcName string) {
 }
 
 func rewriteBlocks(node ast.Node, funcName string) {
+	mapKeyNumber := 0
 	ast.Inspect(node, func(n ast.Node) bool {
 		if rangeStmt, ok := n.(*ast.RangeStmt); ok {
 			var logs []ast.Stmt
@@ -269,14 +270,31 @@ func rewriteBlocks(node ast.Node, funcName string) {
 		if block, ok := n.(*ast.BlockStmt); ok {
 			var newList []ast.Stmt
 			for _, stmt := range block.List {
-				newList = append(newList, stmt)
 				if as, ok := stmt.(*ast.AssignStmt); ok {
+					var mapLogs []ast.Stmt
+					for _, lhs := range as.Lhs {
+						index, ok := lhs.(*ast.IndexExpr)
+						if !ok {
+							continue
+						}
+
+						mapExpr := formatExpr(index.X)
+						keyName := fmt.Sprintf("__%v_mapKey%d", constants.LibName, mapKeyNumber)
+						mapKeyNumber++
+						newList = append(newList, parse.ParseStmt(fmt.Sprintf("%s := %s", keyName, formatExpr(index.Index))))
+						index.Index = ast.NewIdent(keyName)
+						mapLogs = append(mapLogs, parse.BuildMapAssignmentLog(mapExpr, keyName, mapExpr, funcName))
+					}
+					newList = append(newList, stmt)
 					for _, lhs := range as.Lhs {
 						if id, ok := lhs.(*ast.Ident); ok && id.Name != "_" {
 							newList = append(newList, parse.AssignmentLog(id.Name, funcName))
 						}
 					}
+					newList = append(newList, mapLogs...)
+					continue
 				}
+				newList = append(newList, stmt)
 				if incDec, ok := stmt.(*ast.IncDecStmt); ok {
 					if id, ok := incDec.X.(*ast.Ident); ok && id.Name != "_" {
 						newList = append(newList, parse.AssignmentLog(id.Name, funcName))
@@ -287,6 +305,14 @@ func rewriteBlocks(node ast.Node, funcName string) {
 		}
 		return true
 	})
+}
+
+func formatExpr(expr ast.Expr) string {
+	var buf bytes.Buffer
+	if err := format.Node(&buf, token.NewFileSet(), expr); err != nil {
+		panic(fmt.Errorf("format expression: %w", err))
+	}
+	return buf.String()
 }
 
 // writeRuntimeLogger drops an isolated runtime logger file into the target package so that
@@ -312,6 +338,7 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -437,7 +464,19 @@ func __{{libName}}_LogOutput(funcName string, args ...any) {
 }
 
 func __{{libName}}_LogAssign(funcName, varName string, val any) {
-	__{{libName}}_Log("assign|%%s|%%s|%%s", funcName, varName, __{{libName}}_FormatValue(val))
+	__{{libName}}_Log("assign|%%s|%%s=%%s", funcName, varName, __{{libName}}_FormatValue(val))
+}
+
+func __{{libName}}_LogMapAssign(funcName, mapName string, key any, valueMap any) {
+	mapValue := reflect.ValueOf(valueMap)
+	if !mapValue.IsValid() || mapValue.Kind() != reflect.Map {
+		return
+	}
+	value := mapValue.MapIndex(reflect.ValueOf(key))
+	if !value.IsValid() {
+		return
+	}
+	__{{libName}}_Log("assign|%%s|%%s[%%s]=%%s", funcName, mapName, __{{libName}}_FormatValue(key), __{{libName}}_FormatValue(value.Interface()))
 }
 
 func __{{libName}}_LogPanic(funcName string, recovered any) {
