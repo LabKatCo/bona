@@ -1,6 +1,7 @@
-package main_test
+package utils_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -9,7 +10,20 @@ import (
 	"github.com/labkatco/bona/example/utils"
 )
 
+const (
+	Reset  = "\033[0m"
+	Red    = "\033[31m"
+	Green  = "\033[32m"
+	Yellow = "\033[33m"
+	Blue   = "\033[34m"
+	Bold   = "\033[1m"
+)
+
 func TestMe(t *testing.T) {
+	// utils2.EnableColor = false
+	fmt.Printf("%sHello, %sWorld!%s\n", Red, Bold, Reset)
+	fmt.Printf("%sThis is blue.%s\n", Blue, Reset)
+
 	CheckEqual(t, utils2.Format(" fig"), "FIG")
 	CheckEqual(t, 1, 1)
 	CheckEqual(t, utils2.Sum(1, 2), 3)
