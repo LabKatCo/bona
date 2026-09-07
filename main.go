@@ -323,7 +323,7 @@ var (
 )
 
 var __{{libName}}_themeColors = map[string]string{
-	"string":      "[36m",
+	"string":      "\x1b[36m",
 	"number":      "\x1b[38;5;208m",
 	"package":     "\x1b[38;5;240m",
 	"type":        "\x1b[90m",
@@ -513,7 +513,7 @@ func __{{libName}}_tokenColor(tokens []__{{libName}}_token, index int) string {
 	current := tokens[index]
 	switch current.kind {
 	case token.STRING, token.CHAR:
-		return "\x1b" + __{{libName}}_themeColors["string"]
+		return __{{libName}}_themeColors["string"]
 	case token.INT, token.FLOAT, token.IMAG:
 		return __{{libName}}_themeColors["number"]
 	case token.IDENT:
