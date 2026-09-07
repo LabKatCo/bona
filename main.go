@@ -401,16 +401,7 @@ func __{{libName}}_supportsColor(force bool) bool {
 	if force {
 		return true
 	}
-
-	if strings.EqualFold(os.Getenv("TERM_PROGRAM"), "vscode") || os.Getenv("VSCODE_CWD") != "" || os.Getenv("VSCODE_IPC_HOOK_CLI") != "" {
-		return true
-	}
-	if os.Getenv("TERM") == "dumb" {
-		return false
-	}
-
-	info, err := os.Stdout.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return os.Getenv("TERM") != "dumb"
 }
 
 
