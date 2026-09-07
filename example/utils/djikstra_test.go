@@ -22,18 +22,20 @@ func TestShortestPath(t *testing.T) {
 		),
 		map[int]int{0: 0, 1: 7, 2: 3, 3: 9, 4: 5},
 	)
+}
 
-	// CheckDeepEqual(t,
-	// 	utils2.ShortestPath(
-	// 		5,
-	// 		[][]int{
-	// 			{0, 1, 10},
-	// 			{0, 2, 3},
-	// 			{1, 3, 2},
-	// 			{2, 1, 4},
-	// 			{2, 3, 8}},
-	// 		0,
-	// 	),
-	// 	map[int]int{0: 0, 1: 7, 2: 3, 3: 9, 4: 5},
-	// )
+func TestShortestPath2(t *testing.T) {
+	CheckDeepEqual(t,
+		utils2.ShortestPath(
+			5,
+			[][]int{
+				{0, 1, 10},
+				{0, 2, 3},
+				{1, 3, 2},
+				{2, 1, 4},
+				{2, 3, 8}},
+			0,
+		),
+		map[int]int{0: 0, 1: 7, 2: 3, 3: 9, 4: -1},
+	)
 }

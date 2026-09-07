@@ -7,8 +7,7 @@ import (
 
 //bona:pure
 func ShortestPath(n int, edges [][]int, src int) map[int]int {
-
-	pathsToWeights := map[string]int{}
+	basePathsToWeights := map[string]int{}
 
 	// for all edges, map start-end path to weight
 	for _, edge := range edges {
@@ -16,21 +15,33 @@ func ShortestPath(n int, edges [][]int, src int) map[int]int {
 		end := edge[1]
 		weight := edge[2]
 
-		pathsToWeights[fmt.Sprintf("%v-%v", start, end)] = weight
+		basePathsToWeights[fmt.Sprintf("%v-%v", start, end)] = weight
 	}
 
-	for range n {
+	pathsToWeights := map[string]int{}
+	for k := range basePathsToWeights {
+		pathsToWeights[k] = basePathsToWeights[k]
+	}
+
+	lastPathCount := len(pathsToWeights)
+	pathCount := 0
+
+	for pathCount == 0 || lastPathCount != pathCount {
+		lastPathCount = len(pathsToWeights)
+
 		for path, weight := range pathsToWeights {
 			pathStart := string(path[0])
 			pathEnd := string(path[len(path)-1])
 
-			for possibleNextPath, nextWeight := range pathsToWeights {
-				if strings.HasPrefix(possibleNextPath, pathEnd) && !strings.HasSuffix(possibleNextPath, pathStart) {
+			for possibleNextPath, nextWeight := range basePathsToWeights {
+				if strings.HasPrefix(possibleNextPath, pathEnd) && !strings.Contains(possibleNextPath, pathStart) {
 					fullPath := path + "-" + string(possibleNextPath[len(possibleNextPath)-1])
 					pathsToWeights[fullPath] = weight + nextWeight
 				}
 			}
 		}
+
+		pathCount = len(pathsToWeights)
 	}
 
 	shortestPaths := map[int]int{src: 0}
@@ -50,6 +61,11 @@ func ShortestPath(n int, edges [][]int, src int) map[int]int {
 					shortestPaths[i] = weight
 				}
 			}
+		}
+
+		_, found := shortestPaths[i]
+		if !found {
+			shortestPaths[i] = -1
 		}
 	}
 
